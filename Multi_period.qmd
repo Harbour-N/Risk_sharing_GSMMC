@@ -1,0 +1,118 @@
+---
+title: Risk sharing
+description: balalalbadldb
+authors:
+  - name: Nicholas Harbour
+format: 
+  html:
+    embed-resources: true
+    code-fold: true
+    number-sections: true
+    toc: true
+    toc-depth: 3
+    date: now
+    date-modified: last-modified
+    date-format: "MMMM DD, YYYY, HH:mm:ss"
+jupyter: python3
+---
+
+
+```{python}
+
+import numpy as np  
+from scipy.optimize import minimize
+from scipy.optimize import differential_evolution
+import matplotlib.pyplot as plt
+import pandas as pd
+
+```
+
+
+We are following an example from 
+```{python}
+
+means = np.array([55,70,100])
+cov_mat = np.array([[255, 50, 20],
+                     [50, 121, 30],
+                     [20, 30, 625]])
+
+Omega = np.array([[0.5, 0, 0],
+                  [0, 1.5, 0],
+                  [0, 0, 2]])
+
+lambda_prime = np.array([1,0.5,2])
+
+# Initial reserve
+R_0 = np.ones(3)*1500
+
+
+# Monte carlo simulation to generate 1000
+X_samples = np.random.multivariate_normal(means, cov_mat, size=1000)  # shape (1000, 3)
+X = np.transpose(X_samples)  # shape (3, 1000)
+
+```
+
+
+# First solve for A0
+
+First we need to solve for the initial time point A0
+
+```{python}
+
+
+# Objective with penalty for constraints
+def objective_penalty(params):
+    a11, a12, a13, a21, a22, a23, a31, a32, a33 = params
+
+    A = np.array([[a11, a12, a13],
+                  [a21, a22, a23],
+                  [a31, a32, a33]])
+    
+    H = A @ X
+
+    # old
+    var_sum = np.var(H)
+
+    # new
+
+    # Empirical estimate of E[H Hᵀ]
+    EHHT = H @ H.T / H.shape[1]  # divide by number of samples
+    # trace
+
+    # expecttion of H'T
+    EHT = np.mean(H, axis=1)
+
+    tr = np.trace(lambda_prime@EHT - EHHT @ Omega)
+
+    
+    # Penalize mean constraint violations heavily
+    #penalty = 1e6 * np.sum(np.abs(np.mean(H, axis=1) - means))
+
+    # constrainnt that columns sum to 1
+    col_sums = np.sum(A, axis=0)
+    col_penalty = 1e6 * np.sum(np.abs(col_sums - 1))
+
+
+    
+    return -(tr) + col_penalty
+
+
+
+# Bounds for b11, b22
+#bounds = [(0, 1), (0, 1), (0, 1), 
+#          (0, 1), (0, 1), (0, 1), 
+#          (0, 1), (0, 1), (0, 1)]
+
+# set no bounds
+bounds = [(-1000, 1000)] * 9
+
+# Run differential evolution
+result = differential_evolution(objective_penalty,bounds, tol=1e-10)
+
+print("Optimal parameters from differential evolution:", result.x)
+print("Objective value:", result.fun)
+
+print(f"A0 = {result.x.reshape(3, 3)}")
+# check if columns sum to 1
+print("Column sums:", np.sum(result.x.reshape(3, 3), axis=0))
+```
