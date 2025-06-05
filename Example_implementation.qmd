@@ -1,0 +1,131 @@
+---
+title: Risk sharing
+description: balalalbadldb
+authors:
+  - name: Nicholas Harbour
+format: 
+  html:
+    embed-resources: true
+    code-fold: true
+    number-sections: true
+    toc: true
+    toc-depth: 3
+    date: now
+    date-modified: last-modified
+    date-format: "MMMM DD, YYYY, HH:mm:ss"
+jupyter: python3
+---
+
+
+```{python}
+
+
+import numpy as np  
+from scipy.optimize import minimize
+import matplotlib.pyplot as plt
+import pandas as pd
+
+
+
+```
+
+
+A two-by-two model
+
+
+linear risk sharing rule 
+
+
+
+
+```{python}
+
+
+# Simulated sample losses for two agents
+#np.random.seed(42)
+X1 = np.random.normal(loc=1, scale=0.2, size=10000)
+X2 = np.random.normal(loc=7, scale=0.2, size=10000)
+
+
+# Objective: minimize sum of variances after risk sharing
+def objective(params):
+    b11 = params[0]
+    b22 = params[1]
+    H1 = b11 * X1 + (1 - b22) * X2
+    H2 = (1 - b11) * X1 + b22 * X2
+    var_ = np.var(H1) + np.var(H2)
+    print(var_)
+    return var_
+
+
+# Actuarial fiarness
+
+# Constraints: E[H1] = E[X1] and E[H2] = E[X2]
+def constraint1(params):
+    b11 = params[0]
+    b22 = params[1]
+    H1 = b11 * X1 + (1 - b22) * X2
+    const1 = np.mean(H1) - np.mean(X1)
+    print(f"Constraint 1: {const1}")
+    return np.mean(H1) - np.mean(X1)
+
+def constraint2(params):
+    b11 = params[0]
+    b22 = params[1]
+    H2 = (1 - b11) * X1 + b22 * X2
+    return np.mean(H2) - np.mean(X2)
+
+# Constraints in the form required by scipy
+cons = [{'type': 'eq', 'fun': constraint1},
+        {'type': 'eq', 'fun': constraint2}]
+
+# Initial guess
+x0 = [0.5, 0.9]
+
+# Zeroe bounds
+bounds = [(0, 100), (0, 100)]  # b11 and b22 must be non-negative
+
+
+
+# Optimization
+res = minimize(objective, x0, constraints=cons, bounds=bounds, method='trust-constr')
+
+print("Optimal parameters:", res.x)
+
+
+```
+
+
+We can varify this correct by using the formula
+
+$$
+B^* = \frac{1}{n} \vec{1} \vec{1}^T + \frac{1}{\mu^T_X \Sigma^{-1} \mu_X} (1 - \frac{1}{n} \vec{1}\vec{1}^T) \mu_X \mu_X^T \Sigma^{-1}
+$$
+
+Where $\mu_X$ is the vector of means and $\Sigma$ is the covariance matrix of the losses.
+
+$$
+\Sigma = \begin{pmatrix}
+\text{Var}(X_1) & 0 \\
+0 & \text{Var}(X_2)
+\end{pmatrix}
+$$
+
+
+
+```{python}
+
+cov_matrix = np.cov(X1, X2)
+sigma = np.array([[0.2**2, 0], [0, 0.2**2]])
+means = np.array([np.mean(X1), np.mean(X2)])
+# Calculate the optimal parameters using the formula
+n = 2  # Number of agents
+mu_X = means.reshape(-1, 1)
+Sigma_inv = np.linalg.inv(sigma)
+B_star = (1/n) * np.ones((n, n)) + (1 / (mu_X.T @ Sigma_inv @ mu_X)) * (1 - (1/n) * np.ones((n, n))) @ mu_X @ mu_X.T @ Sigma_inv
+print("Optimal parameters from formula:\n", B_star[0, 0], B_star[1, 1])
+print("Optimal parameters from optimization:\n", res.x)
+
+
+
+```
