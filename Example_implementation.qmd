@@ -109,3 +109,73 @@ print("Optimal parameters from optimization:\n", result.x)
 
 
 ```
+
+
+Make a plot for varying differences between means of 2 agents
+
+```{python}
+
+
+dif_means = np.array([0.25,0.5,0.75,1,1.25,1.5,2,3,5,7])
+numeric_res = np.zeros((len(dif_means),2,2))
+analytic_res = np.zeros(((len(dif_means)),2,2))
+
+for i in range(len(dif_means)):
+    X1 = np.random.normal(loc=0.1, scale=sd, size=10000)
+    X2 = np.random.normal(loc=0.1 * dif_means[i], scale=sd, size=10000)
+    
+    mu1 = np.mean(X1)
+    mu2 = np.mean(X2)
+
+
+    bounds = [(0, 1), (0, 1)]
+    ans = differential_evolution(objective_penalty, bounds, strategy='best1bin', tol=1e-8)
+    numeric_res[i, :, :] = ans.x
+
+    means = np.array([np.mean(X1), np.mean(X2)])
+    Sigma = np.diag([np.var(X1), np.var(X2)])  # Covariance matrix
+    # Calculate the optimal parameters using the formula
+    n = 2  # Number of agents
+    mu_X = means.reshape(-1, 1)
+    Sigma_inv = np.linalg.inv(Sigma)
+    M = mu_X.T @ Sigma_inv @ mu_X
+    analytic_res[i] = (1/n) * np.ones((n,n)) + (1/M) * (np.eye(n) - (1/n) * np.ones((n,n))) @ mu_X @ mu_X.T @ Sigma_inv
+
+    
+
+
+
+```
+
+
+make plot
+
+```{python}
+
+fig, ax = plt.subplots(1,2, figsize=(12, 6))
+
+fs = 18
+
+ax[0].plot(dif_means, numeric_res[:,0,0], label='Numeric', marker='o')
+ax[0].plot(dif_means, analytic_res[:,0,0], label='Analytic', marker='x', linestyle='--')
+#ax[0].legend()
+ax[0].set_xlabel('Difference in Means', fontsize = fs)
+ax[0].set_ylabel('Optimal  $\\alpha_{1,1}$', fontsize = fs)
+ax[0].tick_params(axis='both', labelsize=fs)
+#ax[0].set_title('Optimal $\\alpha_{1,1}$ vs Difference in Means')
+
+ax[1].plot(dif_means, numeric_res[:,1,1], label='Numeric', marker='o')
+ax[1].plot(dif_means, analytic_res[:,1,1], label='Analytic', marker='x', linestyle='--')
+ax[1].legend()
+ax[1].set_xlabel('Difference in Means', fontsize = fs)
+ax[1].set_ylabel('Optimal  $\\alpha_{2,2}$', fontsize = fs)
+ax[1].tick_params(axis='both', labelsize=fs)
+
+#ax[1].set_title('Optimal $\\alpha_{1,1}$ for different means')
+plt.tight_layout()
+plt.show()
+
+
+
+
+```
