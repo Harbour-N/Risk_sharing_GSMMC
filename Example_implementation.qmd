@@ -41,7 +41,7 @@ linear risk sharing rule
 # Data
 sd = 0.1
 np.random.seed(42)
-X1 = np.random.normal(loc=0.2, scale=sd, size=10000)
+X1 = np.random.normal(loc=0.1, scale=sd, size=10000)
 X2 = np.random.normal(loc=0.7, scale=sd, size=10000)
 
 mu1 = np.mean(X1)
