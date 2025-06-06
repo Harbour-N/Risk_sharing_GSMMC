@@ -121,32 +121,34 @@ for i in range(n_samples):
 
 ```{python}
 
-import seaborn as sns
+unique_indices = sorted(df_coeffs['Index'].unique())
+n = len(unique_indices)
+ncols = 3
+nrows = int(np.ceil(n / ncols))
 
-# Flatten all A matrices into a DataFrame
-coeffs = []
-for t in range(n_time_steps):
-    for sample_idx, A in enumerate(A_all[t]):
-        for i in range(n_agents):
-            for j in range(n_agents):
-                coeffs.append({
-                    'Time Step': f'A{t}',
-                    'Row': i,
-                    'Col': j,
-                    'Coefficient Value': A[i, j],
-                    'Index': f'a{i+1}{j+1}'
-                })
+fig, axes = plt.subplots(nrows, ncols, figsize=(5 * ncols, 4.5 * nrows), sharey=True, sharex=True)
+axes = axes.flatten()
 
-df_coeffs = pd.DataFrame(coeffs)
+fs = 18  # base font size
 
-# Plot: Boxplot of coefficients by time step and position (a_ij)
-plt.figure(figsize=(12, 6))
-sns.boxplot(data=df_coeffs, x='Time Step', y='Coefficient Value', hue='Index')
-plt.title('Boxplot of Coefficients for All A_t Matrices (A0 to A6)')
-plt.grid(True)
+for idx, entry in enumerate(unique_indices):
+    ax = axes[idx]
+    sns.boxplot(data=df_coeffs[df_coeffs['Index'] == entry],
+                x='Time Step', y='Coefficient Value', ax=ax)
+    ax.set_title(f'Entry {entry}', fontsize=fs)
+    ax.set_xlabel('Time Step', fontsize=fs)
+    ax.set_ylabel('Coefficient Value', fontsize=fs)
+    ax.tick_params(axis='both', labelsize=fs - 2)
+    ax.tick_params(axis='x', rotation=45)
+    ax.grid(True)
+
+# Remove unused axes
+for i in range(len(unique_indices), len(axes)):
+    fig.delaxes(axes[i])
+
 plt.tight_layout()
-plt.legend(title='Matrix Entry')
 plt.show()
+
 
 
 

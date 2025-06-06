@@ -1,0 +1,109 @@
+---
+title: Risk sharing
+description: Adding an agent
+authors:
+  - name: Nicholas Harbour
+format: 
+  html:
+    embed-resources: true
+    code-fold: true
+    number-sections: true
+    toc: true
+    toc-depth: 3
+    date: now
+    date-modified: last-modified
+    date-format: "MMMM DD, YYYY, HH:mm:ss"
+jupyter: python3
+---
+
+
+```{python}
+
+import numpy as np  
+from scipy.optimize import minimize
+from scipy.optimize import differential_evolution
+import matplotlib.pyplot as plt
+import pandas as pd
+
+```
+
+
+We are following an example from 
+```{python}
+
+means = np.array([55,70,100])
+cov_mat = np.array([[255, 50, 20],
+                     [50, 121, 30],
+                     [20, 30, 625]])
+
+Omega = np.array([[0.5, 0, 0],
+                  [0, 1.5, 0],
+                  [0, 0, 2]])
+
+lambda_prime = np.array([1,0.5,2])
+
+R_0 = np.array([1500, 1500, 1500])  # Initial reserves for each agent
+
+
+```
+
+
+
+# Just use the means don't do monte carlo
+
+```{python}
+n_time_steps = 7
+n_agents = 3
+n_params_per_matrix = 9
+n_total_params = n_time_steps * n_params_per_matrix
+
+# Objective function for multiple time steps
+def objective(params, loss):
+    A_matrices = [np.array(params[i*9:(i+1)*9]).reshape(3, 3) for i in range(n_time_steps)]
+
+    r_save = np.zeros((n_time_steps, n_agents))
+    r_save[0] = R_0.copy()
+
+    for t in range(1, n_time_steps):
+        H_t = A_matrices[t-1] @ loss[3*(t-1):3*t]
+        r_save[t] = r_save[t-1] - H_t
+
+    R_T = r_save[-1]
+    R_outer = np.outer(R_T, R_T)
+
+    tr = np.trace(np.diag(lambda_prime) @ R_T - Omega @ R_outer)
+
+    # Constraint penalties (column sums to 1)
+    col_penalty = 0
+    for A in A_matrices:
+        col_sums = np.sum(A, axis=0)
+        col_penalty += 1e6 * np.sum((col_sums - 1) ** 2)
+
+    return -tr + col_penalty
+
+
+bounds = [(-20, 20)] * n_total_params
+
+
+result_multi = differential_evolution(objective, bounds, tol=1e-8, args=(means,))
+
+A_matrices = [np.array(result_multi.x[j*9:(j+1)*9]).reshape(3, 3) for j in range(n_time_steps)]
+
+print("Objective value:", result_multi.fun)
+print("A0 = \n", A_matrices[0])
+print("A1 = \n", A_matrices[1])
+
+# Reconstruct reserves
+r_save = np.zeros((n_time_steps, n_agents))
+r_save[0] = R_0.copy()
+for t in range(1, n_time_steps):
+    H_t = A_matrices[t-1] @ loss[3*(t-1):3*t]
+    r_save[t] = r_save[t-1] - H_t
+
+reserves_all.append(r_save)
+for j in range(n_time_steps):
+    A_all[j].append(A_matrices[j])
+
+
+
+```
